@@ -4,7 +4,7 @@ on:
     branches: ["diag/**"]
 jobs:
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # upstream legs ran on 24.04; 26.04 breaks the rm -rf hostedtoolcache install
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -22,7 +22,7 @@ jobs:
           rm -rf /opt/hostedtoolcache
           sudo apt-get install openslide-tools -y
           python -m pip install --upgrade pip wheel
-          pip install -r requirements-dev.txt py-spy
+          python --version; pip install -r requirements-dev.txt py-spy
       - name: Unit tests (diagnostic)
         run: |
           ./runtests.sh --clean
