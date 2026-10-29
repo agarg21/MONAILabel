@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cov: ["cov", "nocov"]
+        cov: ["cov-sysmon"]
     env:
       MONAI_ZOO_AUTH_TOKEN: ${{ github.token }}
     steps:
@@ -23,12 +23,21 @@ jobs:
           sudo apt-get install openslide-tools -y
           python -m pip install --upgrade pip wheel
           python --version; pip install -r requirements-dev.txt py-spy
+      - name: Isolate highdicom._modules import under coverage
+        run: |
+          python -m coverage --version
+          echo "import highdicom._modules" > /tmp/imp.py
+          /usr/bin/time -f "plain import: %e s" python /tmp/imp.py
+          /usr/bin/time -f "coverage default core: %e s" timeout 600 python -m coverage run --source=monailabel /tmp/imp.py || echo "default core timed out/failed"
+          COVERAGE_CORE=sysmon /usr/bin/time -f "coverage sysmon core: %e s" python -m coverage run --source=monailabel /tmp/imp.py
+          wc -l $(python -c "import highdicom,os;print(os.path.dirname(highdicom.__file__))")/_modules.py
       - name: Unit tests (diagnostic)
         run: |
           ./runtests.sh --clean
           python tests/setup.py
-          COV=""; [ "${{ matrix.cov }}" = cov ] && COV="--cov-report term --cov monailabel"
+          COV=""; [ "${{ matrix.cov }}" != nocov ] && COV="--cov-report term --cov monailabel"
           ( for i in $(seq 1 40); do sleep 60; P=$(pgrep -f "pytest" | head -1); [ -n "$P" ] && echo "=== py-spy t=${i}m ===" && sudo $(which py-spy) dump --pid $P 2>&1 | head -60; done ) > pyspy.log 2>&1 &
+          [ "${{ matrix.cov }}" = cov-sysmon ] && export COVERAGE_CORE=sysmon
           python -m pytest --exitfirst --doctest-modules -o faulthandler_timeout=120 --durations=25 $COV tests/unit
       - if: always()
         run: grep -n "convert\|highdicom\|pydicom\|=== py-spy" pyspy.log | head -400; tail -n 120 pyspy.log
