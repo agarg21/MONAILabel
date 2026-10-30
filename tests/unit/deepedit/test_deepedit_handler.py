@@ -95,6 +95,7 @@ class TestHandlerTB2DImage(unittest.TestCase):
                 ]
             )
             engine.run(data, epoch_length=10, max_epochs=1)
+            stats_handler.writer.close()
             self.assertTrue(len(glob.glob(tempdir)) > 0)
 
 
